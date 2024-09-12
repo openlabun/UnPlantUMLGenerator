@@ -1,0 +1,28 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    padding: 0;
+    background: #f4f4f4;
+    color: #333;
+}
+
+input, button {
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 16px;
+}
+
+input[type="text"] {
+    width: 80%; /* You can change this percentage to make it wider */
+}
+
+#output {
+    margin-top: 20px;
+    padding: 20px;
+    background: white;
+    border: 1px solid #ccc;
+}
+
+h3 {
+    color: #444;
+}
