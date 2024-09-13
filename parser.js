@@ -6,6 +6,8 @@ function getGitHubApiUrl(gitHubUrl) {
 }
 
 async function fetchJavaFiles() {
+    // Clear the output before starting a new process
+    document.getElementById('output').innerHTML = '';    
     const gitHubUrl = document.getElementById('repoUrl').value;
     const apiUrl = getGitHubApiUrl(gitHubUrl); // Get the correct API URL
     await fetchAndParseFiles(apiUrl, '');
