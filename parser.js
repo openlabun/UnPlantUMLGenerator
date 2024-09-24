@@ -12,7 +12,7 @@ async function fetchJavaFiles() {
     const apiUrl = getGitHubApiUrl(gitHubUrl); // Get the correct API URL
     await fetchAndParseFiles(apiUrl, '');
 }
-"Hola esto es una prueba"
+
 async function fetchAndParseFiles(baseUrl, path) {
     const fileListUrl = `${baseUrl}${path}`;
 
@@ -34,6 +34,7 @@ async function fetchAndParseFiles(baseUrl, path) {
     }
 }
 
+output.innerHTML += `<p>@startuml</p>`
 
 function parseJavaFile(filePath, content) {
     const classRegex = /class\s+([^\s{]+)/g;
@@ -45,7 +46,7 @@ function parseJavaFile(filePath, content) {
     let classMatch = classRegex.exec(content);
     if (classMatch) {
         let className = classMatch[1];
-        output.innerHTML += `<p>Class: ${className}</p>`;
+        output.innerHTML += `<p>class ${className}</p>`;
         output.innerHTML += `<ul>`;
 
         // Reset the regex index for method search within the class
@@ -53,9 +54,11 @@ function parseJavaFile(filePath, content) {
         while ((methodMatch = methodRegex.exec(content)) !== null) {
             let methodName = methodMatch[2];
             let methodParams = methodMatch[3];
-            output.innerHTML += `<li>Method: ${methodName} - Parameters: ${methodParams}</li>`;
+            output.innerHTML += `<li>${className} : ${methodName}</li>`;
         }
 
         output.innerHTML += `</ul>`;
     }
 }
+
+output.innerHTML += `<p>@enduml</p>`
