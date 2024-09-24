@@ -41,13 +41,11 @@ function parseJavaFile(filePath, content) {
     const methodRegex = /(public|protected|private|static|\s)\s+[\w<>\[\]]+\s+(\w+)\s*\(([^)]*)\)/g;
 
     let output = document.getElementById('output');
-    output.innerHTML += `<h3>${filePath}</h3>`;
 
     let classMatch = classRegex.exec(content);
     if (classMatch) {
         let className = classMatch[1];
         output.innerHTML += `<p>class ${className}</p>`;
-        output.innerHTML += `<ul>`;
 
         // Reset the regex index for method search within the class
         let methodMatch;
@@ -57,7 +55,6 @@ function parseJavaFile(filePath, content) {
             output.innerHTML += `<li>${className} : ${methodName}</li>`;
         }
 
-        output.innerHTML += `</ul>`;
     }
 }
 
