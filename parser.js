@@ -52,7 +52,7 @@ function parseJavaFile(filePath, content) {
         while ((methodMatch = methodRegex.exec(content)) !== null) {
             let methodName = methodMatch[2];
             let methodParams = methodMatch[3];
-            output.innerHTML += `<li>${className} : ${methodName}</li>`;
+            output.innerHTML += `<p>${className} : ${methodName}</p>`;
         }
 
     }
