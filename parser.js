@@ -6,6 +6,8 @@ function getGitHubApiUrl(gitHubUrl) {
 }
 
 async function fetchJavaFiles() {
+    // Clear the output before starting a new process
+    document.getElementById('output').innerHTML = '';    
     const gitHubUrl = document.getElementById('repoUrl').value;
     const apiUrl = getGitHubApiUrl(gitHubUrl); // Get the correct API URL
     await fetchAndParseFiles(apiUrl, '');
@@ -32,28 +34,24 @@ async function fetchAndParseFiles(baseUrl, path) {
     }
 }
 
-
 function parseJavaFile(filePath, content) {
     const classRegex = /class\s+([^\s{]+)/g;
     const methodRegex = /(public|protected|private|static|\s)\s+[\w<>\[\]]+\s+(\w+)\s*\(([^)]*)\)/g;
 
     let output = document.getElementById('output');
-    output.innerHTML += `<h3>${filePath}</h3>`;
 
     let classMatch = classRegex.exec(content);
     if (classMatch) {
         let className = classMatch[1];
-        output.innerHTML += `<p>Class: ${className}</p>`;
-        output.innerHTML += `<ul>`;
+        output.innerHTML += `class ${className}<br>`;
 
         // Reset the regex index for method search within the class
         let methodMatch;
         while ((methodMatch = methodRegex.exec(content)) !== null) {
             let methodName = methodMatch[2];
             let methodParams = methodMatch[3];
-            output.innerHTML += `<li>Method: ${methodName} - Parameters: ${methodParams}</li>`;
+            output.innerHTML += `${className} : ${methodName}<br>`;
         }
 
-        output.innerHTML += `</ul>`;
     }
 }
