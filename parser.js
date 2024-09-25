@@ -34,6 +34,8 @@ async function fetchAndParseFiles(baseUrl, path) {
     }
 }
 
+:)
+
 output.innerHTML += `<p>@startuml</p>`
 
 function parseJavaFile(filePath, content) {
