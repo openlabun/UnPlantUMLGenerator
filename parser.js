@@ -38,24 +38,72 @@ async function fetchAndParseFiles(baseUrl, path) {
 function parseJavaFile(filePath, content) {
     const classRegex = /class\s+([^\s{]+)/g;
     const methodRegex = /(public|protected|private|static|\s)\s+[\w<>\[\]]+\s+(\w+)\s*\(([^)]*)\)/g;
+    const attributeRegex = /^\s*(public|protected|private)?\s+([\w<>\[\]]+)\s+(\w+)\s*;/gm;
+    const inheritanceRegex = /class\s+([^\s{]+)\s+extends\s+([^\s{]+)/;
+    const interfaceRegex = /class\s+([^\s{]+)\s+implements\s+([^\s{]+)/;
 
     let output = document.getElementById('output');
     output.innerHTML += `<h3>${filePath}</h3>`;
 
+    let plantUML = "@startuml\n";
+    let relations = "";
+
     let classMatch = classRegex.exec(content);
+    
     if (classMatch) {
         let className = classMatch[1];
-        output.innerHTML += `<p>Class: ${className}</p>`;
-        output.innerHTML += `<ul>`;
+        plantUML += `class ${className} {\n`;
+        
+
+        let methodPosition = content.search(methodRegex);
+        let attributesSection = content.slice(0, methodPosition); 
+        
+        let attributeMatch;
+        while ((attributeMatch = attributeRegex.exec(attributesSection)) !== null) {
+            let attributeType = attributeMatch[2];
+            let attributeName = attributeMatch[3];
+            if(attributeType != "package"){
+                plantUML += `  +${attributeName}: ${attributeType}\n`;
+
+                if(isClass(attributeType)){
+                    relations += `${className} --> ${attributeType}\n`;
+                }
+            }
+        }
 
         // Reset the regex index for method search within the class
         let methodMatch;
         while ((methodMatch = methodRegex.exec(content)) !== null) {
             let methodName = methodMatch[2];
             let methodParams = methodMatch[3];
-            output.innerHTML += `<li>Method: ${methodName} - Parameters: ${methodParams}</li>`;
+            plantUML += `  +${methodName}(${methodParams})\n`;
+        }
+        plantUML += `\}\n`;
+
+
+        let inheritanceMatch = inheritanceRegex.exec(content);
+        if (inheritanceMatch) {
+            let parentClass = inheritanceMatch[2];
+            relations += `${className} <|-- ${parentClass}\n`;  
+        }
+        
+        let interfaceMatch = interfaceRegex.exec(content);
+        if (interfaceMatch) {
+            let interfaces = interfaceMatch[2].split(",");
+            for (let interfaceName of interfaces) {
+                relations += `${className} <|.. ${interfaceName.trim()}\n`;  
+            }
         }
 
-        output.innerHTML += `</ul>`;
     }
+    plantUML += relations;
+    plantUML += "@enduml";
+    output.innerHTML += `<pre>${plantUML}</pre>`;
+
+}
+
+
+function isClass(type) {
+    const knownTypes = ['int', 'double', 'float', 'char', 'boolean', 'String'];
+    return !knownTypes.includes(type);
 }
