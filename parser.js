@@ -37,6 +37,7 @@ async function fetchAndParseFiles(baseUrl, path) {
 
 function parseJavaFile(filePath, content) {
     const classRegex = /class\s+([^\s{]+)/g;
+    const enumRegex = /enum\s+([^\s{]+)/g;
     const methodRegex = /(public|protected|private|static|\s)\s+[\w<>\[\]]+\s+(\w+)\s*\(([^)]*)\)/g;
     const attributeRegex = /^\s*(public|protected|private)?\s+([\w<>\[\]]+)\s+(\w+)\s*;/gm;
     const inheritanceRegex = /class\s+([^\s{]+)\s+extends\s+([^\s{]+)/;
@@ -46,31 +47,50 @@ function parseJavaFile(filePath, content) {
     output.innerHTML += `<h3>${filePath}</h3>`;
 
     let plantUML = "@startuml\n";
-    let relations = "";
+    let relations = "";  
 
     let classMatch = classRegex.exec(content);
-    
+    let enumMatch = enumRegex.exec(content);
+
+    if (enumMatch) {
+        let enumName = enumMatch[1];
+        plantUML += `enum ${enumName} {\n`;
+
+        
+        const enumValuesRegex = /(\w+),?/g;
+        let enumValuesSection = content.slice(content.indexOf(enumName) + enumName.length);
+        let valueMatch;
+        while ((valueMatch = enumValuesRegex.exec(enumValuesSection)) !== null) {
+            plantUML += `  ${valueMatch[1]}\n`;
+        }
+        plantUML += `}\n`;
+    }
+
     if (classMatch) {
         let className = classMatch[1];
         plantUML += `class ${className} {\n`;
-        
 
         let methodPosition = content.search(methodRegex);
         let attributesSection = content.slice(0, methodPosition); 
-        
+
         let attributeMatch;
         while ((attributeMatch = attributeRegex.exec(attributesSection)) !== null) {
             let attributeType = attributeMatch[2];
             let attributeName = attributeMatch[3];
-            if(attributeType != "package"){
-                plantUML += `  +${attributeName}: ${attributeType}\n`;
-
-                if(isClass(attributeType)){
-                    relations += `${className} --> ${attributeType}\n`;
+            if (attributeType !== "package") {
+               
+                if (attributeType.includes("ArrayList")) {
+                    let listType = attributeType.match(/ArrayList<([^>]+)>/)[1];  
+                    plantUML += `  +${attributeName}: ${listType} [*]\n`;  
+                    relations += `${className} "0..*" - "1..*" ${listType} : contains\n`;  
+                } else {
+                    plantUML += `  +${attributeName}: ${attributeType}\n`;
+                    if (isClass(attributeType)) {
+                        relations += `${className} --> ${attributeType}\n`;  
+                    }
                 }
             }
         }
-
         // Reset the regex index for method search within the class
         let methodMatch;
         while ((methodMatch = methodRegex.exec(content)) !== null) {
@@ -78,15 +98,14 @@ function parseJavaFile(filePath, content) {
             let methodParams = methodMatch[3];
             plantUML += `  +${methodName}(${methodParams})\n`;
         }
-        plantUML += `\}\n`;
-
+        plantUML += `}\n`;
 
         let inheritanceMatch = inheritanceRegex.exec(content);
         if (inheritanceMatch) {
             let parentClass = inheritanceMatch[2];
             relations += `${className} <|-- ${parentClass}\n`;  
         }
-        
+
         let interfaceMatch = interfaceRegex.exec(content);
         if (interfaceMatch) {
             let interfaces = interfaceMatch[2].split(",");
@@ -94,16 +113,15 @@ function parseJavaFile(filePath, content) {
                 relations += `${className} <|.. ${interfaceName.trim()}\n`;  
             }
         }
-
     }
-    plantUML += relations;
+
+    plantUML += relations;  
     plantUML += "@enduml";
     output.innerHTML += `<pre>${plantUML}</pre>`;
-
 }
 
 
 function isClass(type) {
-    const knownTypes = ['int', 'double', 'float', 'char', 'boolean', 'String'];
-    return !knownTypes.includes(type);
+    const knownTypes = ['int', 'double', 'float', 'char', 'boolean', 'String', 'void'];  
+    return !knownTypes.includes(type);  
 }
