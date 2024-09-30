@@ -56,7 +56,6 @@ function parseJavaFile(filePath, content) {
         let enumName = enumMatch[1];
         plantUML += `enum ${enumName} {\n`;
 
-        
         const enumValuesRegex = /(\w+),?/g;
         let enumValuesSection = content.slice(content.indexOf(enumName) + enumName.length);
         let valueMatch;
@@ -78,13 +77,20 @@ function parseJavaFile(filePath, content) {
             let attributeType = attributeMatch[2];
             let attributeName = attributeMatch[3];
             if (attributeType !== "package") {
-               
+                
                 if (attributeType.includes("ArrayList")) {
                     let listType = attributeType.match(/ArrayList<([^>]+)>/)[1];  
                     plantUML += `  +${attributeName}: ${listType} [*]\n`;  
-                    relations += `${className} "0..*" - "1..*" ${listType} : contains\n`;  
+                    
+                    
+                    if (listType.includes("ArrayList")) {
+                        relations += `${className} "0..*" -- "0..*" ${listType}\n`;
+                    } else {
+                        relations += `${className} "1" -- "0..*" ${listType}\n`;
+                    }
                 } else {
                     plantUML += `  +${attributeName}: ${attributeType}\n`;
+
                     if (isClass(attributeType)) {
                         relations += `${className} --> ${attributeType}\n`;  
                     }
@@ -103,14 +109,14 @@ function parseJavaFile(filePath, content) {
         let inheritanceMatch = inheritanceRegex.exec(content);
         if (inheritanceMatch) {
             let parentClass = inheritanceMatch[2];
-            relations += `${className} <|-- ${parentClass}\n`;  
+            relations += `${parentClass} <|-- ${className}\n`;  
         }
 
         let interfaceMatch = interfaceRegex.exec(content);
         if (interfaceMatch) {
             let interfaces = interfaceMatch[2].split(",");
             for (let interfaceName of interfaces) {
-                relations += `${className} <|.. ${interfaceName.trim()}\n`;  
+                relations += `${className} ..|> ${interfaceName.trim()}\n`;  
             }
         }
     }
