@@ -41,7 +41,7 @@ async function fetchAndParseFiles(baseUrl, path) {
         }
     }
 }
-
+let relationsSet = new Set();
 const processedClasses = new Set();
 let FinalPlantUML = "@startuml\n";
 
@@ -88,28 +88,32 @@ function parseJavaFile(filePath, content) {
 
             let attributeMatch;
             while ((attributeMatch = attributeRegex.exec(attributesSection)) !== null) {
+                let visibility = attributeMatch[1] || 'package';
                 let attributeType = attributeMatch[2];
                 let attributeName = attributeMatch[3];
+                let visibilitySymbol = getVisibilitySymbol(visibility);
 
-                if (attributeType !== "package") {
-                    if (attributeType.includes("ArrayList")) {
-                        let listType = attributeType.match(/ArrayList<([^>]+)>/)[1];  
-                        plantUML += `    +${attributeName}: ${listType} [*]\n`;  
-                        relations += `${className} "1" -- "0..*" ${listType}\n`;
-                    } else {
-                        plantUML += `    +${attributeName}: ${attributeType}\n`;
-                        if (isClass(attributeType)) {
-                            relations += `${className} --> ${attributeType}\n`;  
-                        }
+                if (attributeType.includes("ArrayList")) {
+                    let listType = attributeType.match(/ArrayList<([^>]+)>/)[1];  
+                    plantUML += `    ${visibilitySymbol}${attributeName}: ${listType} [*]\n`;  
+                    relations += `${className} "1" -- "0..*" ${listType}\n`;
+                } else {
+                    plantUML += `    ${visibilitySymbol}${attributeName}: ${attributeType}\n`;
+                    if (isClass(attributeType)) {
+                        addRelation(className, attributeType); 
                     }
                 }
             }
+
             // Reset the regex index for method search within the class
             let methodMatch;
             while ((methodMatch = methodRegex.exec(content)) !== null) {
+                let visibility = methodMatch[1] || 'package';
                 let methodName = methodMatch[2];
                 let methodParams = methodMatch[3];
-                plantUML += `    +${methodName}(${methodParams})\n`;
+
+                let visibilitySymbol = getVisibilitySymbol(visibility);
+                plantUML += `    ${visibilitySymbol}${methodName}(${methodParams})\n`;
             }
             plantUML += `}\n`;
 
@@ -132,7 +136,42 @@ function parseJavaFile(filePath, content) {
     FinalPlantUML += plantUML + relations;
 }
 
+function getVisibilitySymbol(visibility) {
+    switch (visibility) {
+        case 'public':
+            return '+';
+        case 'private':
+            return '-';
+        case 'protected':
+            return '#';
+        default:
+            return ''; 
+    }
+}
+
+function addRelation(classA, classB) {
+    const relationAtoB = `${classA} --> ${classB}`;
+    const relationBtoA = `${classB} --> ${classA}`;
+    
+    if (relationsSet.has(relationBtoA)) {
+        relationsSet.delete(relationBtoA);
+        relationsSet.add(`${classA} <--> ${classB}`);
+    } else {
+        relationsSet.add(relationAtoB);
+    }
+}
+
+function generateRelations() {
+    let relations = '';
+    for (let relation of relationsSet) {
+        relations += relation + '\n';
+    }
+    return relations;
+}
+
 function finalizeUML() {
+    const relations = generateRelations();
+    FinalPlantUML += "\n" + relations;
     FinalPlantUML += "\n@enduml"; 
     let output = document.getElementById('output');
     output.innerHTML = `<pre>${FinalPlantUML}</pre>`;
@@ -142,3 +181,4 @@ function isClass(type) {
     const knownTypes = ['int', 'double', 'float', 'char', 'boolean', 'String', 'void'];  
     return !knownTypes.includes(type);  
 }
+
