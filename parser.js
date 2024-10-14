@@ -155,14 +155,15 @@ function parseJavaFile(filePath, content) {
                 let visibility = methodMatch[1];
                 let methodName = methodMatch[2];
                 let methodParams = methodMatch[3];
-                
-                let visibilitySymbol = getVisibilitySymbol(visibility);
                 if(methodName === className){
-                    plantUML += `    +${methodName}(${methodParams})\n`;
+                    let str = methodMatch[0].trim();
+                    let visibilityList = str.split(/\s+/);
+                    visibility = visibilityList[0];
                 }
-                else{
-                    plantUML += `    ${visibilitySymbol}${methodName}(${methodParams})\n`;
-                }
+                let visibilitySymbol = getVisibilitySymbol(visibility);
+
+                plantUML += `    ${visibilitySymbol}${methodName}(${methodParams})\n`;
+
                 let paramsArray = methodParams.split(',').map(param => {
                     let [paramType, paramName] = param.trim().split(/\s+/);
                     return { name: paramName, type: paramType };
