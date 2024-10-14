@@ -56,6 +56,7 @@ function parseJavaFile(filePath, content) {
     const enumRegex = /enum\s+([^\s{]+)/g;
     const constructorRegex = /public\s+([A-Z]\w*)\s*\([^)]*\)\s*\{([\s\S]*?)\}/g;
     const assignmentRegex = /(\w+)\s*=\s*new\s+([A-Z]\w*)\(/g;
+    const instantiationRegex = /(\w+)\s+(\w+)\s*=\s*new\s+(\w+)\s*\(\)/g;
     const methodRegex = /(public|protected|private|static|\s)\s+[\w<>\[\]]+\s+(\w+)\s*\(([^)]*)\)/g;
     const attributeRegex = /^\s*(public|protected|private)?\s+([\w<>\[\]]+)\s+(\w+)\s*;/gm;
     const inheritanceRegex = /class\s+([^\s{]+)\s+extends\s+([^\s{]+)/;
@@ -160,6 +161,20 @@ function parseJavaFile(filePath, content) {
                     let visibilityList = str.split(/\s+/);
                     visibility = visibilityList[0];
                 }
+                if(methodName === "main"){
+                    const innerContent = content.substring(methodMatch.index + methodMatch[0].length);
+                    let instanceMatch;
+                    while ((instanceMatch = instantiationRegex.exec(innerContent)) !== null) {
+                        console.log(instanceMatch);
+                        const instanceType = instanceMatch[3]; 
+                        if (!compositionClassesDict[className]) {
+                            compositionClassesDict[className] = { classType: []};
+                        }
+                        if (!compositionClassesDict[className].classType.includes(instanceType)) {
+                            compositionClassesDict[className].classType.push(instanceType);
+                        }
+                    }
+                } 
                 let visibilitySymbol = getVisibilitySymbol(visibility);
 
                 plantUML += `    ${visibilitySymbol}${methodName}(${methodParams})\n`;
@@ -318,24 +333,27 @@ function generateArrayListRelations(classesDictionary){
 
         for (let attribute of attributes) {
             if (attribute.type.includes("ArrayList") || attribute.type.includes("LinkedList")) {
+
                 let listType = attribute.type.match(/<(.*?)>/)[1]; 
+                    
+                if(listType !== "Integer"){
+                    let relationAtoB = `${className} --> "0..*" ${listType}`;
+                    let relationBtoA = `${listType} --> ${className}`;
+                    let relationBtoAMultiplicity = `${listType} "0..*" -- "0..*" ${className}`;
+                    let relationBtoAMultiplicityVer = `${listType} -- "0..*" ${className}`;
+                    let relationSimple = `${className} -- "0..*" ${listType}`;
 
-                let relationAtoB = `${className} --> "0..*" ${listType}`;
-                let relationBtoA = `${listType} --> ${className}`;
-                let relationBtoAMultiplicity = `${listType} "0..*" -- "0..*" ${className}`;
-                let relationBtoAMultiplicityVer = `${listType} -- "0..*" ${className}`;
-                let relationSimple = `${className} -- "0..*" ${listType}`;
-
-                if (relationsSet.has(relationBtoA)) {
-                    relationsSet.delete(relationBtoA); 
-                    relationsSet.add(relationSimple);  
-                } 
-                else if (relationsSet.has(relationBtoAMultiplicityVer)) {
-                    relationsSet.delete(relationBtoAMultiplicity); 
-                    relationsSet.add(relationBtoAMultiplicity);    
-                } 
-                else {
-                    relationsSet.add(relationAtoB);
+                    if (relationsSet.has(relationBtoA)) {
+                        relationsSet.delete(relationBtoA); 
+                        relationsSet.add(relationSimple);  
+                    } 
+                    else if (relationsSet.has(relationBtoAMultiplicityVer)) {
+                        relationsSet.delete(relationBtoAMultiplicity); 
+                        relationsSet.add(relationBtoAMultiplicity);    
+                    } 
+                    else {
+                        relationsSet.add(relationAtoB);
+                    }
                 }
             }
         }
@@ -381,7 +399,6 @@ function dependencyRelation(classesDictionary){
 }
 
 function finalizeUML() {
-    console.log(classesDictionary);
     generateArrayListRelations(classesDictionary);
     addCompositionRelation(compositionClassesDict);
     agregationRelation(compositionClassesDict);
@@ -394,7 +411,7 @@ function finalizeUML() {
 }
 
 function isClass(type) {
-    const knownTypes = ['int', 'double', 'float', 'char', 'boolean', 'String', 'void', "Object", "String[]"];  
+    const knownTypes = ['int', 'double', 'float', 'char', 'boolean', 'String', 'void', "Object", "String[]","system"];  
     return !knownTypes.includes(type);  
 }
 
