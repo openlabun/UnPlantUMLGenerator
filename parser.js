@@ -44,10 +44,17 @@ async function fetchAndParseFiles(baseUrl, path) {
 let relationsSet = new Set();
 const processedClasses = new Set();
 let FinalPlantUML = "@startuml\n";
+let classesDictionary = {};
 
 function parseJavaFile(filePath, content) {
+    content = content.replace(/^package\s+[^\s;]+;/gm, '');
+    content = content.replace(/\/\/.*$/gm, '');
+    content = content.replace(/\/\*[\s\S]*?\*\//g, '');
+
     const classRegex = /class\s+([^\s{]+)/g;
     const enumRegex = /enum\s+([^\s{]+)/g;
+    const constructorRegex = /public\s+([A-Z]\w*)\s*\([^)]*\)\s*\{([\s\S]*?)\}/g;
+    const assignmentRegex = /(\w+)\s*=\s*new\s+([A-Z]\w*)\(/g;
     const methodRegex = /(public|protected|private|static|\s)\s+[\w<>\[\]]+\s+(\w+)\s*\(([^)]*)\)/g;
     const attributeRegex = /^\s*(public|protected|private)?\s+([\w<>\[\]]+)\s+(\w+)\s*;/gm;
     const inheritanceRegex = /class\s+([^\s{]+)\s+extends\s+([^\s{]+)/;
@@ -83,20 +90,29 @@ function parseJavaFile(filePath, content) {
             processedClasses.add(className);  
             plantUML += `class ${className} {\n`;
 
+            if (!classesDictionary[className]) {
+                classesDictionary[className] = { attributes: []};  
+            }
+
             let methodPosition = content.search(methodRegex);
             let attributesSection = content.slice(0, methodPosition);
 
             let attributeMatch;
             while ((attributeMatch = attributeRegex.exec(attributesSection)) !== null) {
-                let visibility = attributeMatch[1] || 'package';
+                let visibility = attributeMatch[1];
                 let attributeType = attributeMatch[2];
                 let attributeName = attributeMatch[3];
                 let visibilitySymbol = getVisibilitySymbol(visibility);
 
-                if (attributeType.includes("ArrayList")) {
-                    let listType = attributeType.match(/ArrayList<([^>]+)>/)[1];  
+                classesDictionary[className].attributes.push({
+                    name: attributeName,
+                    type: attributeType,
+                    visibility: getVisibilitySymbol(visibility)
+                });
+
+                if (attributeType.includes("ArrayList") || attributeType.includes("LinkedList")) {
+                    let listType = attributeType.match(/(?:ArrayList|LinkedList)<([^>]+)>/)[1];  
                     plantUML += `    ${visibilitySymbol}${attributeName}: ${listType} [*]\n`;  
-                    relations += `${className} "1" -- "0..*" ${listType}\n`;
                 } else {
                     plantUML += `    ${visibilitySymbol}${attributeName}: ${attributeType}\n`;
                     if (isClass(attributeType)) {
@@ -105,15 +121,39 @@ function parseJavaFile(filePath, content) {
                 }
             }
 
+            let constructorMatch;
+            while ((constructorMatch = constructorRegex.exec(content)) !== null) {
+                let constructorName = constructorMatch[1];  
+                let constructorBody = constructorMatch[2];  
+                
+                let assignmentMatch;
+                while ((assignmentMatch = assignmentRegex.exec(constructorBody)) !== null) {
+                    let attributeName = assignmentMatch[1]; 
+                    let classType = assignmentMatch[2];      
+                    
+                    if(classType !== "ArrayList" && classType !== "LinkedList"){
+                        addCompositionRelation(className,classType);
+                    }
+
+                    
+                }
+            }
+
             // Reset the regex index for method search within the class
             let methodMatch;
             while ((methodMatch = methodRegex.exec(content)) !== null) {
-                let visibility = methodMatch[1] || 'package';
+                let visibility = methodMatch[1];
                 let methodName = methodMatch[2];
                 let methodParams = methodMatch[3];
 
                 let visibilitySymbol = getVisibilitySymbol(visibility);
-                plantUML += `    ${visibilitySymbol}${methodName}(${methodParams})\n`;
+                if(methodName === className){
+                    plantUML += `    +${methodName}(${methodParams})\n`;
+                }
+                else{
+                    plantUML += `    ${visibilitySymbol}${methodName}(${methodParams})\n`;
+                }
+                
             }
             plantUML += `}\n`;
 
@@ -155,10 +195,18 @@ function addRelation(classA, classB) {
     
     if (relationsSet.has(relationBtoA)) {
         relationsSet.delete(relationBtoA);
-        relationsSet.add(`${classA} <--> ${classB}`);
+        relationsSet.add(`${classA} -- ${classB}`);
     } else {
         relationsSet.add(relationAtoB);
     }
+}
+
+function addCompositionRelation(classA, classB) {
+    const relationAtoB = `${classA} --> ${classB}`;
+    if (relationsSet.has(relationAtoB)) {
+        relationsSet.delete(relationAtoB);
+    }
+    relationsSet.add(`${classA} *-- ${classB}`);
 }
 
 function generateRelations() {
@@ -168,8 +216,39 @@ function generateRelations() {
     }
     return relations;
 }
+                    
+function generateArrayListRelations(classesDictionary){
+    for (let className in classesDictionary) {
+        let attributes = classesDictionary[className].attributes;
+
+        for (let attribute of attributes) {
+            if (attribute.type.includes("ArrayList") || attribute.type.includes("LinkedList")) {
+                let listType = attribute.type.match(/<(.*?)>/)[1]; 
+
+                let relationAtoB = `${className} --> "0..*" ${listType}`;
+                let relationBtoA = `${listType} --> ${className}`;
+                let relationBtoAMultiplicity = `${listType} "0..*" -- "0..*" ${className}`;
+                let relationBtoAMultiplicityVer = `${listType} -- "0..*" ${className}`;
+                let relationSimple = `${className} -- "0..*" ${listType}`;
+
+                if (relationsSet.has(relationBtoA)) {
+                    relationsSet.delete(relationBtoA); 
+                    relationsSet.add(relationSimple);  
+                } 
+                else if (relationsSet.has(relationBtoAMultiplicityVer)) {
+                    relationsSet.delete(relationBtoAMultiplicity); 
+                    relationsSet.add(relationBtoAMultiplicity);    
+                } 
+                else {
+                    relationsSet.add(relationAtoB);
+                }
+            }
+        }
+    }
+}
 
 function finalizeUML() {
+    generateArrayListRelations(classesDictionary);
     const relations = generateRelations();
     FinalPlantUML += "\n" + relations;
     FinalPlantUML += "\n@enduml"; 
