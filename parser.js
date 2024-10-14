@@ -41,11 +41,12 @@ async function fetchAndParseFiles(baseUrl, path) {
         }
     }
 }
+
 let relationsSet = new Set();
 const processedClasses = new Set();
 let FinalPlantUML = "@startuml\n";
 let classesDictionary = {};
-
+let compositionClassesDict = {};
 function parseJavaFile(filePath, content) {
     content = content.replace(/^package\s+[^\s;]+;/gm, '');
     content = content.replace(/\/\/.*$/gm, '');
@@ -132,7 +133,12 @@ function parseJavaFile(filePath, content) {
                     let classType = assignmentMatch[2];      
                     
                     if(classType !== "ArrayList" && classType !== "LinkedList"){
-                        addCompositionRelation(className,classType);
+                        if (!compositionClassesDict[className]) {
+                            compositionClassesDict[className] = { classType: []};
+                        }
+                        if (!compositionClassesDict[className].classType.includes(classType)) {
+                            compositionClassesDict[className].classType.push(classType);
+                        }
                     }
 
                     
@@ -201,13 +207,87 @@ function addRelation(classA, classB) {
     }
 }
 
-function addCompositionRelation(classA, classB) {
-    const relationAtoB = `${classA} --> ${classB}`;
-    if (relationsSet.has(relationAtoB)) {
-        relationsSet.delete(relationAtoB);
+function addCompositionRelation(compositionClassesDict) {
+    for (let className in compositionClassesDict){
+        let classDetails = compositionClassesDict[className];
+        let classTypes = classDetails.classType;
+        classTypes.forEach(classType => {
+        const relationComposition = `${className} *--> ${classType}`;
+        relationsSet.add(relationComposition);
+        
+        const relationAtoB = `${className} --> ${classType}`;
+        const relationBtoA = `${className} --> ${classType}`;
+        const relationAtoBBtoA = `${className} -- ${classType}`;
+        const relationBtoAAtoB = `${classType} -- ${className}`;
+
+        if (relationsSet.has(relationAtoB)) {
+            relationsSet.delete(relationAtoB);
+        }
+        if (relationsSet.has(relationBtoA)){
+            relationsSet.delete(relationBtoA);
+            relationsSet.delete(relationComposition);
+            relationsSet.add(`${className} *-- ${classType}`);
+        }
+        if(relationsSet.has(relationAtoBBtoA)){
+            relationsSet.delete(relationAtoBBtoA);
+            relationsSet.add(`${className} *-- ${classType}`);
+            relationsSet.delete(relationComposition);
+        }
+        if(relationsSet.has(relationBtoAAtoB)){
+            relationsSet.delete(relationBtoAAtoB);
+            relationsSet.add(`${className} *-- ${classType}`);
+            relationsSet.delete(relationComposition);
+        }
+
+    });
+        
     }
-    relationsSet.add(`${classA} *-- ${classB}`);
+   
 }
+
+function agregationRelation(compositionClassesDict){
+
+    let valueToKeysMap = new Map();  
+    let duplicates = {};  
+
+    for (let key in compositionClassesDict) {
+        let values1 = compositionClassesDict[key];  
+        let values = values1.classType;
+
+        values.forEach(value => {
+            if (valueToKeysMap.has(value)) {
+                valueToKeysMap.get(value).push(key);
+
+                duplicates[value] = valueToKeysMap.get(value);
+            } else {
+                valueToKeysMap.set(value, [key]);
+            }
+        });
+    }
+    console.log(duplicates);
+
+    for (let classType in duplicates){
+
+        let classNames = duplicates[classType];
+        classNames.forEach(className => {
+
+        const relationComposition = `${className} *--> ${classType}`;
+        const relationCompositionBiDir = `${className} *-- ${classType}`;
+        const relationAgregation = `${className} o--> ${classType}`;
+        const relationAgregationBiDir = `${className} o-- ${classType}`;
+
+        if(relationsSet.has(relationComposition)){
+            relationsSet.delete(relationComposition);
+            relationsSet.add(relationAgregation);
+        } else if (relationsSet.has(relationCompositionBiDir)){
+            relationsSet.delete(relationCompositionBiDir);
+            relationsSet.add(relationAgregationBiDir);
+        }
+        });
+      }
+    }
+
+
 
 function generateRelations() {
     let relations = '';
@@ -216,6 +296,7 @@ function generateRelations() {
     }
     return relations;
 }
+
                     
 function generateArrayListRelations(classesDictionary){
     for (let className in classesDictionary) {
@@ -249,6 +330,8 @@ function generateArrayListRelations(classesDictionary){
 
 function finalizeUML() {
     generateArrayListRelations(classesDictionary);
+    addCompositionRelation(compositionClassesDict);
+    agregationRelation(compositionClassesDict);
     const relations = generateRelations();
     FinalPlantUML += "\n" + relations;
     FinalPlantUML += "\n@enduml"; 
