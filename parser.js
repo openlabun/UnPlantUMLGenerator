@@ -70,6 +70,10 @@ function parseJavaFile(filePath, content) {
     if (enumMatch) {
         let enumName = enumMatch[1];
 
+        if (!classesDictionary[enumName]) {
+            classesDictionary[enumName] = { attributes: [], methods: []};  
+        }
+
         if (!processedClasses.has(enumName)) {
             processedClasses.add(enumName);  
             plantUML += `enum ${enumName} {\n`;
@@ -92,7 +96,7 @@ function parseJavaFile(filePath, content) {
             plantUML += `class ${className} {\n`;
 
             if (!classesDictionary[className]) {
-                classesDictionary[className] = { attributes: []};  
+                classesDictionary[className] = { attributes: [], methods: []};  
             }
 
             let methodPosition = content.search(methodRegex);
@@ -151,7 +155,7 @@ function parseJavaFile(filePath, content) {
                 let visibility = methodMatch[1];
                 let methodName = methodMatch[2];
                 let methodParams = methodMatch[3];
-
+                
                 let visibilitySymbol = getVisibilitySymbol(visibility);
                 if(methodName === className){
                     plantUML += `    +${methodName}(${methodParams})\n`;
@@ -159,6 +163,16 @@ function parseJavaFile(filePath, content) {
                 else{
                     plantUML += `    ${visibilitySymbol}${methodName}(${methodParams})\n`;
                 }
+                let paramsArray = methodParams.split(',').map(param => {
+                    let [paramType, paramName] = param.trim().split(/\s+/);
+                    return { name: paramName, type: paramType };
+                });
+            
+                classesDictionary[className].methods.push({
+                    name: methodName,
+                    params: paramsArray, 
+                    visibility: visibilitySymbol
+                });
                 
             }
             plantUML += `}\n`;
@@ -264,7 +278,6 @@ function agregationRelation(compositionClassesDict){
             }
         });
     }
-    console.log(duplicates);
 
     for (let classType in duplicates){
 
@@ -328,10 +341,50 @@ function generateArrayListRelations(classesDictionary){
     }
 }
 
+function dependencyRelation(classesDictionary){
+    for (let className in classesDictionary) {
+        let classDetails = classesDictionary[className];
+        let attributes = classDetails.attributes || [];
+        let methods = classDetails.methods || [];
+        
+        methods.forEach(method => {
+            if (method.name === className) {
+                return; 
+            }
+
+            if (method.params && Array.isArray(method.params)) {
+                method.params.forEach(param => {
+                    const paramType = param.type;
+                    
+                    if (paramType && paramType.trim() && isClass(paramType)) {
+                        const isAttribute = attributes.some(attr => {
+                            let attrType = attr.type;
+
+                            const attrMatch = attrType.match(/(?:ArrayList|LinkedList)<([^>]+)>/);
+                            if (attrMatch) {
+                                attrType = attrMatch[1];  
+                            }
+    
+                            return attrType === paramType;
+                        });
+                        
+                        if (!isAttribute) {
+                            const relationDependency = `${className} ..> ${paramType}`;
+                            relationsSet.add(relationDependency);
+                        }
+                    }
+                });
+            }
+        });
+    }
+}
+
 function finalizeUML() {
+    console.log(classesDictionary);
     generateArrayListRelations(classesDictionary);
     addCompositionRelation(compositionClassesDict);
     agregationRelation(compositionClassesDict);
+    dependencyRelation(classesDictionary);
     const relations = generateRelations();
     FinalPlantUML += "\n" + relations;
     FinalPlantUML += "\n@enduml"; 
@@ -340,7 +393,7 @@ function finalizeUML() {
 }
 
 function isClass(type) {
-    const knownTypes = ['int', 'double', 'float', 'char', 'boolean', 'String', 'void'];  
+    const knownTypes = ['int', 'double', 'float', 'char', 'boolean', 'String', 'void', "Object", "String[]"];  
     return !knownTypes.includes(type);  
 }
 
