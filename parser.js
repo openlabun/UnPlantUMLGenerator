@@ -1,61 +1,118 @@
-function getGitHubApiUrl(gitHubUrl) {
-    // This function will convert a regular GitHub repository URL to its API endpoint.
-    console.log('GitHub URL:', gitHubUrl);
-    const repoPath = gitHubUrl.replace(/^https:\/\/github.com\//, "");
-    return `https://api.github.com/repos/${repoPath}/contents/`;
+import { generatePlantUML } from "./generateplantuml";
+
+const INVALID_TYPES = ['package' , 'return'];
+
+export function transformJavaClassesToUml(javaFiles: string[]): string{
+  const classesData: ClassData[] = [];
+  for(const javaFile of javaFiles) {
+    const classData = extractDataFromJavaFile(javaFile);
+    classesData.push(classData)    
+  }
+  return generatePlantUML(classesData);
 }
 
-async function fetchJavaFiles() {
-    // Clear the output before starting a new process
-    document.getElementById('output').innerHTML = '';    
-    const gitHubUrl = document.getElementById('repoUrl').value;
-    const apiUrl = getGitHubApiUrl(gitHubUrl); // Get the correct API URL
-    await fetchAndParseFiles(apiUrl, '');
+type ClassMethod = {
+  name: string
+  returnType: string
+  parameters: string[]
+}
+type ClassProperty = {
+  name: string
+  type: string
+} 
+
+type ClassData = {
+  properties: ClassProperty[]
+  methods: ClassMethod[]
+  name: string,
+  implements: string[],
+  extends?: string,
 }
 
-async function fetchAndParseFiles(baseUrl, path) {
-    const fileListUrl = `${baseUrl}${path}`;
-
-    const response = await fetch(fileListUrl);
-    if (!response.ok) {
-        console.error('Failed to fetch:', response.statusText);
-        return;
-    }
-    const entries = await response.json();
-
-    for (let entry of entries) {
-        if (entry.type === 'file' && entry.name.endsWith('.java')) {
-            const fileResponse = await fetch(entry.download_url);
-            const fileContent = await fileResponse.text();
-            parseJavaFile(entry.path, fileContent);
-        } else if (entry.type === 'dir') {
-            await fetchAndParseFiles(baseUrl, `${entry.path}/`);
-        }
-    }
+function extractDataFromJavaFile(javaFile: string): ClassData {
+  return {
+    name: getClassNameFromJavaFile(javaFile),
+    extends: getExtendsFromJavaFile(javaFile),
+    implements: getImplementsFromJavaFile(javaFile),
+    methods: getClassMethodsFromJavaFile(javaFile),
+    properties: getClassPropertiesFromJavaFile(javaFile),
+  }
 }
 
+function getClassNameFromJavaFile(javaFile: string): string {
+  const classRegex = /(enum|class)\s+([^\s{]+)/g;
+  let classMatch = classRegex.exec(javaFile);
+  if (classMatch) {
+    return classMatch[2];
+  }
+  throw new Error("Function not implemented.");
+}
 
-function parseJavaFile(filePath, content) {
-    const classRegex = /class\s+([^\s{]+)/g;
-    const methodRegex = /(public|protected|private|static|\s)\s+[\w<>\[\]]+\s+(\w+)\s*\(([^)]*)\)/g;
-
-    let output = document.getElementById('output');
-    output.innerHTML += `<h3>${filePath}</h3>`;
-
-    let classMatch = classRegex.exec(content);
-    if (classMatch) {
-        let className = classMatch[1];
-        output.innerHTML += `<p>Class: ${className}</p>`;
-        output.innerHTML += `<ul>`;
-
-        // Reset the regex index for method search within the class
-        let methodMatch;
-        while ((methodMatch = methodRegex.exec(content)) !== null) {
-            let methodName = methodMatch[2];
-            let methodParams = methodMatch[3];
-            output.innerHTML += `<li>Method: ${methodName} - Parameters: ${methodParams}</li>`;
-        }
-
-        output.innerHTML += `</ul>`;
+function getClassMethodsFromJavaFile(javaFile: string): ClassMethod[] {
+  const methodRegex = /(?:(public|protected|private|static|final)\s+)*([\w<>\[\]]+)\s+(\w+)\s*\(([^)]*)\)/g;
+  const methods: ClassMethod[] = [];
+  let methodMatch: any;
+  while ((methodMatch = methodRegex.exec(javaFile)) !== null) {
+    const returnType = methodMatch[2];
+    if(returnType === 'new') {
+      continue
     }
+
+    const name = methodMatch[3];
+    const parameters = methodMatch[4].trim();
+
+    const parsedParams = parameters
+    ? parameters.split(',').map((param: string) => {
+        const [type, paramName] = param.trim().split(/\s+/);
+        return { name: paramName, type };
+    })
+    : [];
+
+    methods.push({
+        name,
+        parameters: parsedParams,
+        returnType
+    });
+  }
+
+  return methods;
+}
+
+function getClassPropertiesFromJavaFile(javaFile: string): ClassProperty[] {
+  const propertyPattern = /\b(private|protected|public)?\s*(static\s+)?([a-zA-Z_$][a-zA-Z_$0-9]*)\s+([a-zA-Z_$][a-zA-Z_$0-9]*)\s*(=[^;]*)?;/g;
+  const properties: ClassProperty[] = [];
+  let propertyMatch: any; 
+
+  while ((propertyMatch = propertyPattern.exec(javaFile)) !== null) {
+    delete propertyMatch.input
+    const type = propertyMatch[3];
+    const isInvalidType = INVALID_TYPES.includes(type);
+    if (isInvalidType){
+      continue
+    }
+    const name = propertyMatch[4];
+    properties.push({ name, type });
+  }
+  
+  return properties;
+}
+
+function getExtendsFromJavaFile(javaFile: string): string | undefined {
+  const extendsRegex = /extends\s+([^\s{]+)/g;
+  let extendsMatch = extendsRegex.exec(javaFile);
+
+  if(extendsMatch) {
+    return extendsMatch[1];
+  }
+}
+
+function getImplementsFromJavaFile(javaFile: string): string[] {
+  const implementsRegex = /implements\s+([^\s{]+)/g;
+  let implementsMatch = implementsRegex.exec(javaFile);
+  if(implementsMatch) {
+    return [implementsMatch[1]];
+      
+  }
+
+  return [];
 }
