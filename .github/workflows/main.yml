@@ -26,7 +26,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
         script: |
-          cd /home/proyecto/MIPSTranslator/
+          cd /home/proyecto/UnPlantUMLGenerator/
           git pull origin main
           git status
           docker stop unplantumlgenerator-app
