@@ -4,24 +4,59 @@ function getGitHubApiUrl(gitHubUrl) {
     return `https://api.github.com/repos/${repoPath}/contents/`;
 }
 
+/**
+ * 1) Gather all .java file entries (recursively) 
+ * 2) Then parse them one by one, showing a "counter" in #output
+ * 3) Finally, display the generated UML
+ */
 async function fetchJavaFiles() {
-    // Clear the output before starting a new process
-    document.getElementById('output').innerHTML = '';  
-    const gitHubUrl = document.getElementById('repoUrl').value;
-    const apiUrl = getGitHubApiUrl(gitHubUrl); // Get the correct API URL
-    
+    const outputDiv = document.getElementById("output");
+    outputDiv.innerHTML = ""; // Clear previous output
+
+    const gitHubUrl = document.getElementById("repoUrl").value.trim();
+    if (!gitHubUrl) {
+        outputDiv.innerHTML = `<p style="color:red;">❌ Please enter a valid GitHub repository URL.</p>`;
+        return;
+    }
+
+    // Convert normal GitHub URL to its API endpoint
+    const apiUrl = getGitHubApiUrl(gitHubUrl);
+
     try {
-        
-        await fetchAndParseFiles(apiUrl, '');
-        
-        
+        // 1️⃣ Gather all Java files first (recursively)
+        const allJavaFiles = await gatherJavaFiles(apiUrl, []);
+
+        // 2️⃣ Parse each file, showing progress
+        for (let i = 0; i < allJavaFiles.length; i++) {
+            const entry = allJavaFiles[i];
+            const currentIndex = i + 1;
+            outputDiv.innerHTML = `Processing file ${currentIndex} of ${allJavaFiles.length}: <strong>${entry.path}</strong>`;
+
+            // Fetch file content
+            const fileResponse = await fetch(entry.download_url);
+            const fileContent = await fileResponse.text();
+
+            // Parse file
+            parseJavaFile(entry.path, fileContent);
+        }
+
+        // 3️⃣ All files processed, generate final UML
         finalizeUML();
+
     } catch (error) {
-        console.error("Error processing files: ", error);
+        console.error("Error processing files:", error);
+        outputDiv.innerHTML = `<p style="color:red;">❌ Error: ${error.message}</p>`;
     }
 }
 
-async function fetchAndParseFiles(baseUrl, path) {
+/**
+ * Recursively gathers all .java file entries from the GitHub API
+ * @param {string} baseUrl - The GitHub API base URL
+ * @param {Array} fileList - Accumulator array for file entries
+ * @param {string} path   - Subdirectory path (initially empty)
+ * @returns {Promise<Array>} An array of .java file entries
+ */
+async function gatherJavaFiles(baseUrl, fileList, path = "") {
     const fileListUrl = `${baseUrl}${path}`;
     const response = await fetch(fileListUrl);
 
@@ -32,15 +67,17 @@ async function fetchAndParseFiles(baseUrl, path) {
     const entries = await response.json();
 
     for (let entry of entries) {
-        if (entry.type === 'file' && entry.name.endsWith('.java')) {
-            const fileResponse = await fetch(entry.download_url);
-            const fileContent = await fileResponse.text();
-            parseJavaFile(entry.path, fileContent);
-        } else if (entry.type === 'dir') {
-            await fetchAndParseFiles(baseUrl, `${entry.path}/`);
+        if (entry.type === "file" && entry.name.endsWith(".java")) {
+            // It's a Java file, store it
+            fileList.push(entry);
+        } else if (entry.type === "dir") {
+            // Recursively explore subdirectories
+            await gatherJavaFiles(baseUrl, fileList, `${entry.path}/`);
         }
     }
+    return fileList;
 }
+
 
 let relationsSet = new Set();
 const processedClasses = new Set();
