@@ -415,3 +415,54 @@ function isClass(type) {
     return !knownTypes.includes(type);  
 }
 
+document.addEventListener("DOMContentLoaded", async function () {
+    const repoName = "proyectosingenieriauninorte/UnPlantUMLGenerator"; // Change to your repository
+    const repoUrl = `https://github.com/${repoName}`;
+    const contributorsUrl = `https://api.github.com/repos/${repoName}/contributors`;
+
+    document.getElementById("repo-link").href = repoUrl;
+    document.getElementById("repo-link").textContent = repoUrl.replace("https://github.com/", "");
+
+    try {
+        const response = await fetch(contributorsUrl);
+        if (!response.ok) throw new Error("Failed to fetch contributors");
+
+        const contributors = await response.json();
+        const contributorsDiv = document.getElementById("contributors");
+
+        if (contributors.length === 0) {
+            contributorsDiv.innerHTML = "<p>No contributors found.</p>";
+            return;
+        }
+
+        contributors.forEach(user => {
+            const contributorElement = document.createElement("div");
+            contributorElement.style.display = "inline-block";
+            contributorElement.style.margin = "5px";
+            contributorElement.style.textAlign = "center";
+
+            // Create contributor avatar image
+            const img = document.createElement("img");
+            img.src = user.avatar_url;
+            img.alt = user.login;
+            img.title = user.login;
+            img.width = 40;
+            img.height = 40;
+            img.style.borderRadius = "50%";
+            img.style.cursor = "pointer";
+            img.onclick = () => window.open(user.html_url, "_blank");
+
+            // Contributor username
+            const name = document.createElement("p");
+            name.textContent = user.login;
+            name.style.fontSize = "12px";
+
+            contributorElement.appendChild(img);
+            contributorElement.appendChild(name);
+            contributorsDiv.appendChild(contributorElement);
+        });
+    } catch (error) {
+        console.error("Error fetching contributors:", error);
+        document.getElementById("contributors").innerHTML = "<p style='color: red;'>❌ Failed to load contributors.</p>";
+    }
+});

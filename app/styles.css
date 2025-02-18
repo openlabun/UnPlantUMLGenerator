@@ -1,11 +1,25 @@
+/* Base Styles */
 body {
     font-family: Arial, sans-serif;
-    margin: 20px;
+    margin: 0;
     padding: 0;
     background: #f4f4f4;
     color: #333;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* Ensures full height */
 }
 
+/* Centered Content */
+.container {
+    flex: 1;
+    text-align: center;
+    padding: 20px;
+    max-width: 800px;
+    margin: auto;
+}
+
+/* Input and Button */
 input, button {
     margin-top: 10px;
     padding: 10px;
@@ -13,16 +27,91 @@ input, button {
 }
 
 input[type="text"] {
-    width: 80%; /* You can change this percentage to make it wider */
+    width: 80%;
+    max-width: 500px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
 }
 
+button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    padding: 10px 15px;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Output Section */
 #output {
     margin-top: 20px;
     padding: 20px;
     background: white;
     border: 1px solid #ccc;
+    min-height: 100px;
+    border-radius: 5px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    
+    /* ✅ Ensure text aligns to the left */
+    text-align: left;
+    font-family: monospace; /* Optional: makes code look better */
+    white-space: pre-wrap; /* Ensures formatting of text like code */
 }
 
-h3 {
-    color: #444;
+
+/* Footer - Stays at the bottom */
+footer {
+    background-color: #f8f9fa;
+    text-align: center;
+    padding: 15px;
+    font-size: 14px;
+    width: 100%;
+    margin-top: auto; /* Pushes footer down */
+}
+
+/* Contributors section */
+#contributors img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin: 5px;
+    cursor: pointer;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+    input[type="text"] {
+        width: 90%;
+    }
+}
+
+/* Progress Bar */
+#progress-container {
+    width: 100%;
+    background-color: #ddd;
+    border-radius: 5px;
+    margin: 10px 0;
+    height: 20px;
+    display: none; /* Initially hidden */
+}
+
+#progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #007bff;
+    border-radius: 5px;
+    transition: width 0.4s ease-in-out;
+}
+
+#progress-text {
+    text-align: center;
+    font-size: 14px;
+    color: #555;
 }
