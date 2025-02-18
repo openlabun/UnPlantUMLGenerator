@@ -1,3 +1,24 @@
+/* Top Right Link */
+.top-link {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    text-decoration: none;
+    color: #007bff;
+    font-weight: bold;
+    background: #fff;
+    padding: 5px 10px;
+    border: 1px solid #007bff;
+    border-radius: 3px;
+    transition: background-color 0.3s;
+  }
+  
+  .top-link:hover {
+    background-color: #007bff;
+    color: #fff;
+  }
+
+
 /* Base Styles */
 body {
     font-family: Arial, sans-serif;
