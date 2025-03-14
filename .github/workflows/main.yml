@@ -29,7 +29,7 @@ jobs:
           cd /home/proyecto/UnPlantUMLGenerator/
           git pull origin main
           git status
-          docker stop unplantumlgenerator-app
-          docker rm unplantumlgenerator-app
+          docker stop unplantumlgenerator
+          docker rm unplantumlgenerator
           docker build -t unplantumlgenerator-image .
           docker run -d -it -p 5022:80 --restart unless-stopped --name unplantumlgenerator unplantumlgenerator-image
