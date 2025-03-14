@@ -31,5 +31,5 @@ jobs:
           git status
           docker stop unplantumlgenerator-app
           docker rm unplantumlgenerator-app
-          docker build -t unplantumlgeneratori .
-          docker run -d -it -p 5022:80 --restart unless-stopped --name unplantumlgenerator-app unplantumlgeneratori
+          docker build -t unplantumlgenerator-image .
+          docker run -d -it -p 5022:80 --restart unless-stopped --name unplantumlgenerator unplantumlgenerator-image
