@@ -1,10 +1,10 @@
 name: Deploy
 
-# Controls when the action will run. 
+# Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ main ]
+    branches: [main]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -15,21 +15,21 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-             
-    - name: Deploy using ssh
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: 22
-        script: |
-          cd /home/proyecto/UnPlantUMLGenerator/
-          git pull origin main
-          git status
-          docker stop unplantumlgenerator
-          docker rm unplantumlgenerator
-          docker build -t unplantumlgenerator-image .
-          docker run -d -it -p 5022:80 --restart unless-stopped --name unplantumlgenerator unplantumlgenerator-image
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Deploy using ssh
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd /home/proyecto/UnPlantUMLGenerator/
+            git pull origin main
+            git status
+            docker build -t unplantumlgenerator-image . || { echo "Docker build failed"; exit 1; }
+            docker stop unplantumlgenerator
+            docker rm unplantumlgenerator
+            docker run -d -it -p 5022:80 --restart unless-stopped --name unplantumlgenerator unplantumlgenerator-image
